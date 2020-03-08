@@ -1,0 +1,8 @@
+source,target,value
+Alcohol,MCI,2
+TBI,MCI,2
+TBI,Pre,2
+Alcohol,Dementia,2
+MCI,Pre,2
+MCI,Dementia,2
+Pre,Dementia,4

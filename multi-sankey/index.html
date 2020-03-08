@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Result 10 Programme</title>
+<link href="style.css" rel="stylesheet">
+<style media="screen" type="text/css">
+
+.sankey-graph {
+  height: 600px;
+}
+
+.sankey-graph .node rect {
+  shape-rendering: crispEdges;
+  pointer-events:all;
+  fill: none;
+  stroke: grey;
+  stroke-width: 2px;
+}
+
+.sankey-graph .nodeInfo {
+  pointer-events:none;
+  background-color: white;
+  font: 9px;
+  font-family: Calibri, sans-serif;
+}
+
+.sankey-graph #foreignObject {
+  pointer-events:none;
+}
+
+.sankey-graph .node text {
+  pointer-events: none;
+  text-shadow: 0 1px 0 #fff;
+}
+
+.sankey-graph .bar rect {
+  stroke: none;
+}
+
+.sankey-graph .link {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: .2;
+}
+
+.sankey-graph div.nodeInfo {
+  text-align: center;
+  line-height: 110%;
+  vertical-align: middle;
+  display: table-cell;
+}
+
+
+</style>
+<body>
+
+<header>
+</header>
+
+<p id="chart" class="sankey-graph">
+
+<script src="d3.min.js"></script>
+<script src="sankey.js"></script>
+<script>
+
+var margin = {top: 500, right: 0, bottom: 6, left: 0},
+    width = 1250,  //also change CSS file to change Width
+    height = 1200 - margin.top - margin.bottom,
+    node_Width = 110;
+    node_Stroke = 2;
+
+var formatNumber = d3.format(",.0f"),
+    format = function(d) { return formatNumber(d) + " TODO TODO TODO"; },
+    color = d3.scale.category20();
+
+var svg = d3.select("#chart").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var sankey = d3.sankey()
+    .nodeWidth(node_Width)       //Node width
+    .nodePadding(15)              //spacing between nodes
+    .size([width, height]);
+
+var path = sankey.link();
+
+ d3.csv("flight.csv", function(error, data) {
+
+ // start of CSV conversion
+
+ console.log(data);
+
+ //set up graph in same style as original example but empty
+  var graph = {"nodes" : [], "links" : []};
+
+    data.forEach(function (d) {
+      graph.nodes.push({ "name": d.source });
+      graph.nodes.push({ "name": d.target });
+      graph.links.push({ "source": d.source,
+                         "target": d.target,
+                         "value": +d.value });
+     });
+
+     // return only the distinct / unique nodes
+     graph.nodes = d3.keys(d3.nest()
+       .key(function (d) { return d.name; })
+       .map(graph.nodes));
+
+     // loop through each link replacing the text with its index from node
+     graph.links.forEach(function (d, i) {
+       graph.links[i].source = graph.nodes.indexOf(graph.links[i].source);
+       graph.links[i].target = graph.nodes.indexOf(graph.links[i].target);
+     });
+
+     //now loop through each nodes to make nodes an array of objects
+     // rather than an array of strings
+     graph.nodes.forEach(function (d, i) {
+       graph.nodes[i] = { "name": d };
+     });
+
+	console.log(graph);
+
+
+
+ // end of CSV conversion
+
+
+  sankey.nodes(graph.nodes)
+      .links(graph.links)
+      .layout(100);        //iterations for layout algorithm
+
+
+  var link = svg.append("g").selectAll(".link")
+      .data(graph.links)
+    .enter().append("path")
+      .attr("class", "link")
+      .attr("d", path)
+      .style("stroke-width", function(d) { return Math.max(1, d.dy); })
+      .sort(function(a, b) { return b.dy - a.dy; });
+      //.on("mouseover", highlightLink)
+      //.on("mouseout", unhighlightLink);
+
+  var node = svg.append("g").selectAll(".node")
+      .data(graph.nodes)
+    .enter().append("g")
+      .attr("class", "node")
+      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+	      .call(d3.behavior.drag()
+      .origin(function(d) { return d; })
+      .on("dragstart", function() { this.parentNode.appendChild(this); })
+      .on("drag", dragmove));
+
+
+  node.append("foreignObject")
+        .attr("y", 0)
+        .attr("height", function(d) { return d.dy; })
+        .attr("width", sankey.nodeWidth())
+        .attr("transform", null)
+      .append("xhtml:div")
+        .attr("class", "nodeInfo")
+        .html(function(d) {
+          //var types = d['types'];
+          //var properName = '';
+          //var typeNames = '';
+
+
+          var htmlString = d.name;
+          return htmlString;
+        })
+        .style("height", function(d) { return d.dy + "px"; })
+        .style("width", sankey.nodeWidth() + "px");
+
+//Add node clicking
+d3.selectAll(".node").on("click", handleNodeClick);
+
+  /*Adding color bar for Node TYPE:
+  var typeDict = {
+    'cdn': '#00778c',
+    'analytics': '#ff9b03',
+    'security': '#58008c',
+    'advertising': '#506da5',
+    'api': '#11462c',
+    'social': '#ef5f00',
+    'tracking': '#58008c',
+    'datacenter': '#11462c',
+    'hosting': '#a5c1b3',
+    'cloud': '#11462c'
+  }; */
+
+  /*node.append("g")
+      .attr("class", "bar")
+    .call(addTypeBars); */
+
+   /*  function addTypeBars(sel) {
+
+    sel.each(function(d) {
+
+    var bars = d3.select(this);
+      var types = d.types;
+
+      if (types) {
+
+          var colorbars = [];
+          //Loop through to pull the colors this set of types does have
+          for(var j = 0; j < types.length; j++) {
+              if (typeDict[types[j]]) {
+                  colorbars.push(types[j]);
+              }
+          }
+
+          for (var i = 0; i < colorbars.length; i++) {
+              bars.append("rect")
+              .attr("x", i * (sankey.nodeWidth()/colorbars.length) + 1)
+              .attr("y", 1)
+              .attr("height", 2.5)
+              .attr("width", function (d) {
+                if (i == colorbars.length - 1)
+                  return (sankey.nodeWidth()/colorbars.length) - 2;
+                else
+                  return (sankey.nodeWidth()/colorbars.length);
+
+              })
+              .style("fill", function(d) {
+                  return typeDict[colorbars[i]]
+              });
+
+          }
+      }
+
+    })
+  }//end of addTypeBars  */
+
+  node.append("rect")
+    .attr("height", function(d) { return d.dy; })
+    .attr("width", sankey.nodeWidth())
+    .on("mouseover", showConnections)
+    .on("mouseout", hideConnections);
+
+  function showConnections(d) {
+      //this highlights the node
+      d3.select(this).style("stroke","black")
+          .style("stroke-opacity", 0.6);
+      //If this link is connected to the node
+      link.style("stroke-opacity", function(l) {
+          if (l.source.name == d.name || l.target.name == d.name) {
+              return 0.6;
+          }
+          else
+              return 0.2;
+      });
+  }
+
+  function hideConnections(d) {
+      //This unhighlights the node
+      d3.select(this).style("stroke","grey")
+          .style("stroke-opacity", 0.6);
+      link.style("stroke-opacity", 0.2);
+  }
+
+  function highlightLink(d) {
+      //changes styling on selected link
+      d3.select(this).style("stroke","red")
+          .style("stroke-opacity", 0.6);
+  }
+
+  function unhighlightLink(d) {
+      //changes styling on selected link
+      d3.select(this).style("stroke","black")
+          .style("stroke-opacity", 0.2);
+  }
+
+  function toTitleCase(str) {
+      return str.replace(/\w\S*/g, function(txt){
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+      });
+  }
+
+  function rgbToHex(r, g, b) {
+    var rgb = b | (g << 8) | (r << 16);
+    return (0x1000000 | rgb).toString(16).substring(1);
+  }
+
+  //Recursive highlighting of nodes
+  //---------------------------
+
+	var leftDelay;
+	var rightDelay;
+	var delayIncrement
+	var durationTime;
+
+	delayIncrement = 75;
+	durationTime = 400; //millisecs
+
+	function handleNodeClick(d) {
+
+	leftDelay = 0;
+	rightDelay = 0;
+
+	//Reset colour of nodes to black
+	d3.selectAll(".node")
+		.transition()
+		.duration(250)
+		.style("color","black");
+
+	d3.selectAll(".link")
+		.transition()
+		.duration(250)
+		.style("stroke","black");
+
+	//Highlight clicked node
+	d3.selectAll(".node").filter(function(d2,i) {
+		return d.name == d2.name;
+	})
+	.style("color","green")
+
+    iterateLinkedLinksRight(d); //Recurse source direction
+	iterateLinkedLinksLeft(d); //Recurse target direction
+  }
+  function iterateLinkedLinksRight(pStartNode) {
+
+	rightDelay = rightDelay + delayIncrement;
+
+	//Select links that have a given source name
+	d3.selectAll("path.link").filter(function(pLinkedLink,i) {
+		return pLinkedLink.source.name == pStartNode.name;
+	})
+	.transition()
+	.duration(durationTime)
+	.delay(rightDelay)
+	.style("stroke","red")
+	.style("stroke-opacity", 0.6)
+	.each(iterateLinkedNodesRight);
+  }
+  function iterateLinkedNodesRight(pStartLink) {
+	//Select nodes that have a given source name
+	d3.selectAll(".node").filter(function(pLinkedNode,i) {
+		return pLinkedNode.name == pStartLink.target.name;
+	})
+	.transition()
+	.duration(durationTime)
+	.delay(rightDelay)
+	.style("color","red")
+	.each(iterateLinkedLinksRight);
+
+	rightDelay = 0;
+  }
+
+  function iterateLinkedLinksLeft(pStartNode) {
+
+	leftDelay = leftDelay + delayIncrement;
+
+	//Select links that have a given source name
+	d3.selectAll("path.link").filter(function(pLinkedLink,i) {
+		return pLinkedLink.target.name == pStartNode.name;
+	})
+	.transition()
+	.duration(durationTime)
+	.delay(leftDelay)
+	.style("stroke","red")
+	.style("stroke-opacity", 0.6)
+	.each(iterateLinkedNodesLeft);
+  }
+  function iterateLinkedNodesLeft(pStartLink) {
+
+	//Select nodes that have a given source name
+	d3.selectAll(".node").filter(function(pLinkedNode,i) {
+		return pLinkedNode.name == pStartLink.source.name;
+	})
+	.transition()
+	.duration(durationTime)
+	.delay(leftDelay)
+	.style("color","red")
+	.each(iterateLinkedLinksLeft);
+
+	leftDelay = 0;
+  }
+
+   /* function dragmove(d) {
+    d3.select(this).attr("transform", "translate(" + d.x + "," + (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))) + ")");
+    sankey.relayout();
+    link.attr("d", path);
+  } */
+
+   function dragmove(d) {
+    d3.select(this).attr("transform",
+        "translate(" + (
+        	   d.x = Math.max(0, Math.min(width - d.dx, d3.event.x))
+        	) + "," + (
+                   d.y = Math.max(0, Math.min(height - d.dy, d3.event.y))
+            ) + ")");
+    sankey.relayout();
+    link.attr("d", path);
+  }
+
+  //---------------------------
+});
+
+</script>
